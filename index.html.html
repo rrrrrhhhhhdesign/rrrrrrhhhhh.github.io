@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Smart家計簿">
+  <title>Smart Kakeibo</title>
+
+  <!-- PWA & WebApp アイコン設定 (SVG Data URI: 鮮やかなインディゴグラデーション背景にお財布と金色のコイン) -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><defs><linearGradient id='bg' x1='0%' y1='0%' x2='100%' y2='100%'><stop offset='0%' stop-color='%234f46e5'/><stop offset='100%' stop-color='%237c3aed'/></linearGradient><linearGradient id='gold' x1='0%' y1='0%' x2='100%' y2='100%'><stop offset='0%' stop-color='%23fbbf24'/><stop offset='100%' stop-color='%23d97706'/></linearGradient></defs><rect width='512' height='512' rx='115' fill='url(%23bg)'/><path d='M120 180 C120 160 136 144 156 144 L380 144 C390 144 398 152 398 162 C398 172 390 180 380 180 L156 180 C146 180 138 188 138 198 L138 360 C138 375 150 388 165 388 L380 388 C395 388 408 375 408 360 L408 220 C408 205 395 192 380 192 L156 192 C136 192 120 176 120 180 Z' fill='%23ffffff'/><rect x='330' y='260' width='88' height='60' rx='16' fill='%23e0e7ff'/><circle cx='360' cy='290' r='10' fill='%234f46e5'/><circle cx='190' cy='140' r='46' fill='url(%23gold)' stroke='%23ffffff' stroke-width='6'/><text x='190' y='152' font-family='sans-serif' font-weight='900' font-size='36' fill='%23ffffff' text-anchor='middle'>¥</text></svg>">
+  <link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><defs><linearGradient id='bg' x1='0%' y1='0%' x2='100%' y2='100%'><stop offset='0%' stop-color='%234f46e5'/><stop offset='100%' stop-color='%237c3aed'/></linearGradient><linearGradient id='gold' x1='0%' y1='0%' x2='100%' y2='100%'><stop offset='0%' stop-color='%23fbbf24'/><stop offset='100%' stop-color='%23d97706'/></linearGradient></defs><rect width='512' height='512' rx='115' fill='url(%23bg)'/><path d='M120 180 C120 160 136 144 156 144 L380 144 C390 144 398 152 398 162 C398 172 390 180 380 180 L156 180 C146 180 138 188 138 198 L138 360 C138 375 150 388 165 388 L380 388 C395 388 408 375 408 360 L408 220 C408 205 395 192 380 192 L156 192 C136 192 120 176 120 180 Z' fill='%23ffffff'/><rect x='330' y='260' width='88' height='60' rx='16' fill='%23e0e7ff'/><circle cx='360' cy='290' r='10' fill='%234f46e5'/><circle cx='190' cy='140' r='46' fill='url(%23gold)' stroke='%23ffffff' stroke-width='6'/><text x='190' y='152' font-family='sans-serif' font-weight='900' font-size='36' fill='%23ffffff' text-anchor='middle'>¥</text></svg>">
+
+  <!-- Tailwind CSS & FontAwesome & Chart.js -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
+    body {
+      font-family: 'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #f8fafc;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    .pb-safe { padding-bottom: calc(5rem + env(safe-area-inset-bottom)); }
+    .pt-safe { padding-top: max(1rem, env(safe-area-inset-top)); }
+    /* Hide scrollbar for clean UI */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
+
+  <div id="welcomeModal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-50 flex items-center justify-center p-4 transition-opacity duration-300">
+    <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl text-center space-y-4 border border-slate-100">
+      <div class="w-16 h-16 bg-gradient-to-tr from-indigo-500 to-purple-600 text-white rounded-2xl flex items-center justify-center mx-auto text-3xl shadow-lg shadow-indigo-200">
+        <i class="fa-solid fa-sparkles"></i>
+      </div>
+      <div>
+        <h2 id="welcomeTitle" class="text-xl font-black text-slate-800">おかえりなさい！</h2>
+        <p id="welcomeMessage" class="text-xs font-bold text-indigo-600 mt-2 bg-indigo-50 py-2.5 px-3 rounded-2xl border border-indigo-100 leading-relaxed">
+          今日も家計簿を入力しましょう！カレンダーをタップしてサクッと記録完了！✨
+        </p>
+      </div>
+      <p class="text-[11px] text-slate-400">毎日の小さな記録が、大きな貯蓄の達成につながります。</p>
+      <button onclick="closeWelcomeModal()" class="w-full bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-black py-3.5 rounded-2xl shadow-lg shadow-indigo-200 transition-all text-sm">
+        家計簿をはじめる 💪
+      </button>
+    </div>
+  </div>
+
+  <header class="bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30 pt-safe px-4 pb-3 flex items-center justify-between shadow-sm">
+    <div class="flex items-center gap-2.5">
+      <div class="w-9 h-9 bg-gradient-to-br from-indigo-600 to-purple-600 text-white rounded-xl flex items-center justify-center font-black shadow-md text-base">
+        <i class="fa-solid fa-wallet"></i>
+      </div>
+      <div>
+        <h1 class="text-base font-black text-slate-800 leading-none">Smart Kakeibo</h1>
+        <p class="text-[10px] text-slate-400 font-bold mt-0.5">カレンダー＆分析連携</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <button onclick="openUserNamePrompt()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-1.5 px-3 rounded-xl transition-colors flex items-center gap-1.5 border border-slate-200">
+        <i class="fa-solid fa-user-circle text-indigo-600 text-sm"></i>
+        <span id="headerUserName">ユーザー</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-md mx-auto w-full px-4 pt-4 pb-safe space-y-5">
+
+    <!-- ==================== TAB 1: ホーム ==================== -->
+    <section id="tab-home" class="space-y-4">
+      <!-- 月選択 & サマリーカード -->
+      <div class="bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-700 text-white p-5 rounded-3xl shadow-xl space-y-4 relative overflow-hidden">
+        <div class="flex items-center justify-between relative z-10">
+          <button onclick="changeMonth(-1)" class="w-8 h-8 bg-white/20 hover:bg-white/30 rounded-xl flex items-center justify-center text-xs font-bold active:scale-90 transition-transform"><i class="fa-solid fa-chevron-left"></i></button>
+          <span id="homeMonthDisplay" class="text-lg font-black tracking-wide">2026年 9月</span>
+          <button onclick="changeMonth(1)" class="w-8 h-8 bg-white/20 hover:bg-white/30 rounded-xl flex items-center justify-center text-xs font-bold active:scale-90 transition-transform"><i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+
+        <div class="bg-white/10 backdrop-blur-md p-3.5 rounded-2xl border border-white/20 text-center relative z-10 shadow-inner">
+          <p class="text-xs text-indigo-100 font-bold">✨ 今月の収支差額（貯蓄・残高）</p>
+          <p id="homeNetSavings" class="text-2xl font-black mt-0.5 text-emerald-300 tracking-tight">+¥0</p>
+        </div>
+      </div>
+
+      <!-- 連続貯蓄記録ストリークカード -->
+      <div class="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl flex items-center gap-3 shadow-sm">
+        <div class="w-11 h-11 bg-amber-500 text-white rounded-2xl flex items-center justify-center text-xl shadow-md flex-shrink-0">
+          🔥
+        </div>
+        <div class="flex-1">
+          <div class="flex items-center justify-between">
+            <span class="bg-amber-200 text-amber-900 text-[9px] font-black px-2 py-0.5 rounded-full">モチベーション継続</span>
+          </div>
+          <h3 id="streakText" class="text-xs font-black text-amber-950 mt-0.5">現在 0ヶ月連続で黒字成功中！</h3>
+          <p class="text-[10px] font-medium text-amber-800/80 mt-0.5">この調子で今月も貯蓄アップを目指しましょう！</p>
+        </div>
+      </div>
+
+      <!-- 収支サマリー数値カード -->
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
+          <p class="text-[11px] font-bold text-slate-400 flex items-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span> 収入合計
+          </p>
+          <p id="homeSumIncome" class="text-lg font-black text-emerald-600 mt-1">¥0</p>
+        </div>
+        <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
+          <p class="text-[11px] font-bold text-slate-400 flex items-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-rose-500 inline-block"></span> 支出合計
+          </p>
+          <p id="homeSumExpense" class="text-lg font-black text-rose-600 mt-1">¥0</p>
+        </div>
+      </div>
+
+      <!-- ホーム画面用：ミニ月間カレンダー -->
+      <div class="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+          <h3 class="text-xs font-black text-slate-700 flex items-center gap-1.5">
+            <i class="fa-regular fa-calendar-days text-indigo-600"></i> 今月のカレンダー収支
+          </h3>
+          <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">タップで入力へ</span>
+        </div>
+        
+        <!-- 曜日ヘッダー -->
+        <div class="grid grid-cols-7 text-center text-[10px] font-bold text-slate-400 mb-1">
+          <span class="text-rose-500">日</span>
+          <span>月</span>
+          <span>火</span>
+          <span>水</span>
+          <span>木</span>
+          <span>金</span>
+          <span class="text-sky-500">土</span>
+        </div>
+        <!-- カレンダー日付グリッド -->
+        <div id="homeCalendarGrid" class="grid grid-cols-7 gap-1 text-center">
+          <!-- JSで動的に生成 -->
+        </div>
+      </div>
+
+      <!-- ホーム画面用：支出カテゴリ分析グラフ -->
+      <div class="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+          <h3 class="text-xs font-black text-slate-700 flex items-center gap-1.5">
+            <i class="fa-solid fa-chart-pie text-indigo-600"></i> 今月の支出内訳・グラフ
+          </h3>
+          <span id="chartTotalExpense" class="text-xs font-black text-rose-600">¥0</span>
+        </div>
+        
+        <div class="relative w-full h-48 flex items-center justify-center">
+          <canvas id="expenseChart"></canvas>
+          <div id="noChartData" class="hidden absolute text-xs font-bold text-slate-400 text-center">
+            今月の支出データがありません
+          </div>
+        </div>
+
+        <div id="chartLegendList" class="space-y-1.5 pt-2 border-t border-slate-100">
+          <!-- JSでカテゴリごとの内訳プログレスバーを生成 -->
+        </div>
+      </div>
+
+      <!-- 最近の収支履歴 -->
+      <div class="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+          <h3 class="text-xs font-black text-slate-700 flex items-center gap-1.5">
+            <i class="fa-solid fa-clock-rotate-left text-indigo-600"></i> 最近の記録
+          </h3>
+          <button onclick="switchTab('input')" class="text-[11px] font-bold text-indigo-600 hover:underline">カレンダーで確認 &rarr;</button>
+        </div>
+        <div id="recentHistoryList" class="space-y-2">
+          <!-- JS生成 -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: カレンダー & 家計簿入力 ==================== -->
+    <section id="tab-input" class="hidden space-y-4">
+      <!-- カレンダーメインカード -->
+      <div class="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+          <button onclick="changeMonth(-1)" class="text-xs font-bold text-slate-500 bg-slate-100 p-1.5 rounded-lg"><i class="fa-solid fa-chevron-left"></i> 前月</button>
+          <h2 id="calendarTitle" class="text-sm font-black text-slate-800">2026年 9月</h2>
+          <button onclick="changeMonth(1)" class="text-xs font-bold text-slate-500 bg-slate-100 p-1.5 rounded-lg">翌月 <i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+
+        <!-- 曜日表示 -->
+        <div class="grid grid-cols-7 text-center text-[10px] font-bold text-slate-400">
+          <span class="text-rose-500">日</span>
+          <span>月</span>
+          <span>火</span>
+          <span>水</span>
+          <span>木</span>
+          <span>金</span>
+          <span class="text-sky-500">土</span>
+        </div>
+
+        <!-- インタラクティブカレンダー本体 -->
+        <div id="fullCalendarGrid" class="grid grid-cols-7 gap-1 min-h-[220px]">
+          <!-- JS生成 -->
+        </div>
+      </div>
+
+      <!-- 選択された日付の明細 ＆ フォーム入力エリア -->
+      <div class="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 bg-indigo-600 rounded-full"></span>
+            <h3 id="selectedDateDisplay" class="text-sm font-black text-slate-800">2026-09-01 の収支</h3>
+          </div>
+          <span id="selectedDateTotal" class="text-xs font-black text-slate-600">計 ¥0</span>
+        </div>
+
+        <!-- 選択日の登録データ一覧 -->
+        <div id="selectedDateTransactions" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+          <!-- JSで動的レンダリング -->
+        </div>
+
+        <!-- 入力フォーム -->
+        <form onsubmit="handleInputFormSubmit(event)" class="space-y-3.5 pt-2 border-t border-slate-100">
+          <p class="text-xs font-bold text-indigo-600 flex items-center gap-1">
+            <i class="fa-solid fa-circle-plus"></i> この日に新しい収支を登録
+          </p>
+
+          <!-- 区分選択ラジオ -->
+          <div class="grid grid-cols-4 gap-1.5">
+            <label class="cursor-pointer">
+              <input type="radio" name="inputType" value="variable" checked onchange="updateInputPresetTags()" class="peer hidden">
+              <div class="p-2 text-center text-[11px] font-bold rounded-xl border border-slate-200 peer-checked:bg-orange-500 peer-checked:text-white peer-checked:border-orange-500 transition-all shadow-sm">
+                変動費
+              </div>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="inputType" value="fixed" onchange="updateInputPresetTags()" class="peer hidden">
+              <div class="p-2 text-center text-[11px] font-bold rounded-xl border border-slate-200 peer-checked:bg-rose-500 peer-checked:text-white peer-checked:border-rose-500 transition-all shadow-sm">
+                固定費
+              </div>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="inputType" value="savings" onchange="updateInputPresetTags()" class="peer hidden">
+              <div class="p-2 text-center text-[11px] font-bold rounded-xl border border-slate-200 peer-checked:bg-indigo-600 peer-checked:text-white peer-checked:border-indigo-600 transition-all shadow-sm">
+                貯蓄
+              </div>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="inputType" value="income" onchange="updateInputPresetTags()" class="peer hidden">
+              <div class="p-2 text-center text-[11px] font-bold rounded-xl border border-slate-200 peer-checked:bg-emerald-600 peer-checked:text-white peer-checked:border-emerald-600 transition-all shadow-sm">
+                収入
+              </div>
+            </label>
+          </div>
+
+          <!-- プリセットタグ -->
+          <div>
+            <p class="text-[10px] font-bold text-slate-400 mb-1">ワンタップ自動入力:</p>
+            <div id="inputPresetTags" class="flex flex-wrap gap-1.5">
+              <!-- JS生成 -->
+            </div>
+          </div>
+
+          <!-- 項目名 ＆ 金額 -->
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[10px] font-bold text-slate-400 mb-1">項目名</label>
+              <input type="text" id="inputCategory" placeholder="食費, 家賃など" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold text-slate-400 mb-1">金額 (円)</label>
+              <input type="number" id="inputAmount" placeholder="1000" min="1" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+          </div>
+
+          <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-black py-3 rounded-2xl shadow-lg shadow-indigo-200 transition-all text-xs flex items-center justify-center gap-2">
+            <i class="fa-solid fa-check"></i> この内容で保存する
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: 年間収支早見表 ==================== -->
+    <section id="tab-yearly" class="hidden space-y-4">
+      <div class="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+          <h2 class="text-sm font-black text-slate-800 flex items-center gap-2">
+            <i class="fa-solid fa-table-list text-indigo-600"></i> <span id="yearlyTitleYear">2026年</span> 収支早見表
+          </h2>
+          <select id="yearlyYearSelect" onchange="handleYearSelectChange()" class="bg-slate-100 border border-slate-300 rounded-xl px-2 py-1 text-xs font-bold text-slate-700 focus:outline-none">
+            <option value="2025">2025年</option>
+            <option value="2026" selected>2026年</option>
+            <option value="2027">2027年</option>
+          </select>
+        </div>
+
+        <div class="overflow-x-auto no-scrollbar">
+          <table class="w-full text-left border-collapse text-[11px]">
+            <thead>
+              <tr class="bg-slate-100 text-slate-600 border-b border-slate-200">
+                <th class="p-2 font-bold rounded-l-lg">月</th>
+                <th class="p-2 font-bold text-emerald-600">収入</th>
+                <th class="p-2 font-bold text-orange-500">変動費</th>
+                <th class="p-2 font-bold text-rose-500">固定費</th>
+                <th class="p-2 font-bold text-indigo-600">貯蓄</th>
+                <th class="p-2 font-bold text-slate-800 rounded-r-lg">差額</th>
+              </tr>
+            </thead>
+            <tbody id="yearlyTableBody" class="divide-y divide-slate-100 font-bold">
+              <!-- JS生成 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: 年間貯蓄目標 ==================== -->
+    <section id="tab-goal" class="hidden space-y-4">
+      <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+          <h2 class="text-sm font-black text-slate-800 flex items-center gap-2">
+            <i class="fa-solid fa-bullseye text-indigo-600"></i> 年間貯蓄目標の進捗
+          </h2>
+          <button onclick="editTargetGoalPrompt()" class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100">
+            目標設定
+          </button>
+        </div>
+
+        <!-- 進捗プログレスバー -->
+        <div class="space-y-2">
+          <div class="flex justify-between items-end">
+            <span class="text-xs font-bold text-slate-500">目標達成率</span>
+            <span id="goalProgressPercent" class="text-2xl font-black text-indigo-600">0%</span>
+          </div>
+          <div class="w-full bg-slate-100 rounded-full h-4 overflow-hidden p-0.5 border border-slate-200">
+            <div id="goalProgressBar" class="bg-gradient-to-r from-indigo-500 to-emerald-400 h-full rounded-full transition-all duration-500" style="width: 0%;"></div>
+          </div>
+        </div>
+
+        <!-- 残高 & 貯蓄合計 -->
+        <div class="grid grid-cols-2 gap-3 pt-2">
+          <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+            <p class="text-[10px] font-bold text-slate-400">現在の年間貯蓄累計</p>
+            <p id="goalCurrentTotal" class="text-base font-black text-emerald-600 mt-1">¥0</p>
+          </div>
+          <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+            <p class="text-[10px] font-bold text-slate-400">目標までの残高</p>
+            <p id="goalRemainingAmount" class="text-base font-black text-indigo-600 mt-1">¥0</p>
+          </div>
+        </div>
+
+        <!-- モチベーション称賛カード -->
+        <div id="goalMotivationCard" class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-4 rounded-2xl shadow-md text-center space-y-1">
+          <p class="text-[10px] font-bold text-purple-200 tracking-wider">👑 モチベーションメッセージ</p>
+          <p id="goalMotivationText" class="text-xs font-black mt-1 leading-relaxed">目標に向かって順調なスタートです！一歩一歩前進していきましょう！</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <nav class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 z-40 pb-safe px-2 py-2">
+    <div class="max-w-md mx-auto grid grid-cols-4 gap-1">
+      <button onclick="switchTab('home')" id="nav-home" class="flex flex-col items-center py-1 text-indigo-600 transition-colors">
+        <i class="fa-solid fa-house text-lg"></i>
+        <span class="text-[10px] font-bold mt-1">ホーム</span>
+      </button>
+      <button onclick="switchTab('input')" id="nav-input" class="flex flex-col items-center py-1 text-slate-400 transition-colors">
+        <i class="fa-regular fa-calendar-days text-lg"></i>
+        <span class="text-[10px] font-bold mt-1">カレンダー入力</span>
+      </button>
+      <button onclick="switchTab('yearly')" id="nav-yearly" class="flex flex-col items-center py-1 text-slate-400 transition-colors">
+        <i class="fa-solid fa-table-list text-lg"></i>
+        <span class="text-[10px] font-bold mt-1">年間早見表</span>
+      </button>
+      <button onclick="switchTab('goal')" id="nav-goal" class="flex flex-col items-center py-1 text-slate-400 transition-colors">
+        <i class="fa-solid fa-bullseye text-lg"></i>
+        <span class="text-[10px] font-bold mt-1">貯蓄目標</span>
+      </button>
+    </div>
+  </nav>
+
+  <script>
+    const STORAGE_ITEMS_KEY = 'smart_kakeibo_items_v3';
+    const STORAGE_USER_KEY = 'smart_kakeibo_user_v3';
+    const STORAGE_GOAL_KEY = 'smart_kakeibo_goal_v3';
+
+    let currentYear = 2026;
+    let currentMonth = 9;
+    let selectedDateStr = '2026-09-01';
+    let userName = 'ユーザー';
+    let targetGoal = 500000;
+    let expenseChartInstance = null;
+
+    const PRESET_CATEGORIES = {
+      variable: ['食費', '日用品', '娯楽費', '医療費', '外食費', '交通費', '美容・服飾'],
+      fixed: ['家賃', '電気代', '水道代', 'ガス代', '通信費', 'サブスク', '車ローン'],
+      savings: ['NISA', '先取貯金', '特別費', '定期預金'],
+      income: ['給与収入', '賞与', '副業収入', '臨時収入']
+    };
+
+    const initialData = [
+      { id: '1', date: '2026-09-01', type: 'income', category: '給与収入', amount: 280000 },
+      { id: '2', date: '2026-09-01', type: 'savings', category: 'NISA', amount: 30000 },
+      { id: '3', date: '2026-09-04', type: 'variable', category: '食費', amount: 2460 },
+      { id: '4', date: '2026-09-04', type: 'fixed', category: '電気代', amount: 8500 },
+      { id: '5', date: '2026-09-05', type: 'variable', category: '日用品', amount: 1200 },
+      { id: '6', date: '2026-09-10', type: 'variable', category: '外食費', amount: 4500 },
+      { id: '7', date: '2026-09-15', type: 'variable', category: '食費', amount: 3800 },
+      { id: '8', date: '2026-09-25', type: 'fixed', category: '家賃', amount: 65000 },
+      { id: '9', date: '2026-09-25', type: 'fixed', category: '通信費', amount: 4500 },
+      { id: '10', date: '2026-08-01', type: 'income', category: '給与収入', amount: 275000 },
+      { id: '11', date: '2026-08-05', type: 'variable', category: '食費', amount: 15000 },
+      { id: '12', date: '2026-08-25', type: 'fixed', category: '家賃', amount: 65000 }
+    ];
+
+    let items = [];
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadData();
+      initApp();
+    });
+
+    function loadData() {
+      const savedUser = localStorage.getItem(STORAGE_USER_KEY);
+      if (savedUser) userName = savedUser;
+
+      const savedGoal = localStorage.getItem(STORAGE_GOAL_KEY);
+      if (savedGoal) targetGoal = parseInt(savedGoal, 10);
+
+      const savedItems = localStorage.getItem(STORAGE_ITEMS_KEY);
+      if (savedItems) {
+        items = JSON.parse(savedItems);
+      } else {
+        items = [...initialData];
+        saveItems();
+      }
+    }
+
+    function saveItems() {
+      localStorage.setItem(STORAGE_ITEMS_KEY, JSON.stringify(items));
+    }
+
+    function initApp() {
+      document.getElementById('headerUserName').textContent = userName;
+      
+      const today = new Date();
+      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      selectedDateStr = todayStr.startsWith(`${currentYear}-${String(currentMonth).padStart(2, '0')}`) ? todayStr : `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
+
+      showWelcomeModal();
+      updateInputPresetTags();
+      renderAll();
+    }
+
+    function showWelcomeModal() {
+      document.getElementById('welcomeTitle').textContent = `おかえりなさい、${userName}さん！`;
+      const messages = [
+        "今日も家計簿を入力しましょう！カレンダーをタップしてサクッと記録完了！✨",
+        "素晴らしい習慣ですね！着実に貯蓄目標に向かって進んでいます！💪",
+        "家計簿を開く姿勢が素晴らしい！今日もスマートに記録しましょう！🌟"
+      ];
+      const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+      document.getElementById('welcomeMessage').textContent = randomMsg;
+      document.getElementById('welcomeModal').classList.remove('hidden');
+    }
+
+    function closeWelcomeModal() {
+      document.getElementById('welcomeModal').classList.add('hidden');
+    }
+
+    function openUserNamePrompt() {
+      const newName = prompt('お名前を入力してください:', userName);
+      if (newName && newName.trim()) {
+        userName = newName.trim();
+        localStorage.setItem(STORAGE_USER_KEY, userName);
+        document.getElementById('headerUserName').textContent = userName;
+      }
+    }
+
+    function switchTab(tabName) {
+      ['home', 'input', 'yearly', 'goal'].forEach(t => {
+        document.getElementById(`tab-${t}`).classList.add('hidden');
+        document.getElementById(`nav-${t}`).className = 'flex flex-col items-center py-1 text-slate-400 transition-colors';
+      });
+
+      document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+      document.getElementById(`nav-${tabName}`).className = 'flex flex-col items-center py-1 text-indigo-600 transition-colors';
+
+      renderAll();
+    }
+
+    function changeMonth(delta) {
+      currentMonth += delta;
+      if (currentMonth > 12) { currentMonth = 1; currentYear++; }
+      else if (currentMonth < 1) { currentMonth = 12; currentYear--; }
+      
+      selectedDateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
+      renderAll();
+    }
+
+    function selectCalendarDate(dateStr) {
+      selectedDateStr = dateStr;
+      renderCalendarGrids();
+      renderSelectedDateTransactions();
+    }
+
+    function renderAll() {
+      document.getElementById('homeMonthDisplay').textContent = `${currentYear}年 ${currentMonth}月`;
+      document.getElementById('calendarTitle').textContent = `${currentYear}年 ${currentMonth}月`;
+      document.getElementById('yearlyTitleYear').textContent = `${currentYear}年`;
+
+      renderHomeTab();
+      renderCalendarGrids();
+      renderSelectedDateTransactions();
+      renderYearlyTab();
+      renderGoalTab();
+    }
+
+    // ==================== HOME TAB LOGIC ====================
+    function renderHomeTab() {
+      const monthPrefix = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+      const monthItems = items.filter(i => i.date.startsWith(monthPrefix));
+
+      let income = 0, expense = 0;
+      monthItems.forEach(i => {
+        if (i.type === 'income') income += i.amount;
+        else expense += i.amount;
+      });
+
+      const netSavings = income - expense;
+      document.getElementById('homeSumIncome').textContent = `¥${income.toLocaleString()}`;
+      document.getElementById('homeSumExpense').textContent = `¥${expense.toLocaleString()}`;
+      document.getElementById('homeNetSavings').textContent = `${netSavings >= 0 ? '+' : ''}¥${netSavings.toLocaleString()}`;
+
+      calculateStreak();
+      renderRecentHistory(sorted => sorted.slice(0, 4));
+      renderExpenseChart(monthItems);
+    }
+
+    function calculateStreak() {
+      let streak = 0;
+      let checkY = currentYear;
+      let checkM = currentMonth;
+
+      for (let i = 0; i < 12; i++) {
+        const prefix = `${checkY}-${String(checkM).padStart(2, '0')}`;
+        const mItems = items.filter(it => it.date.startsWith(prefix));
+        if (mItems.length === 0) break;
+
+        let inc = 0, exp = 0;
+        mItems.forEach(it => {
+          if (it.type === 'income') inc += it.amount;
+          else exp += it.amount;
+        });
+
+        if (inc >= exp) {
+          streak++;
+          checkM--;
+          if (checkM < 1) { checkM = 12; checkY--; }
+        } else {
+          break;
+        }
+      }
+
+      document.getElementById('streakText').textContent = `現在 ${streak}ヶ月連続で黒字達成中！`;
+    }
+
+    function renderRecentHistory() {
+      const historyList = document.getElementById('recentHistoryList');
+      const sorted = [...items].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
+
+      if (sorted.length === 0) {
+        historyList.innerHTML = `<p class="text-xs text-slate-400 text-center py-3 font-medium">収支の記録がまだありません</p>`;
+        return;
+      }
+
+      historyList.innerHTML = sorted.map(i => `
+        <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${
+              i.type === 'income' ? 'bg-emerald-100 text-emerald-600' :
+              i.type === 'savings' ? 'bg-indigo-100 text-indigo-600' : 'bg-rose-100 text-rose-600'
+            }">
+              <i class="fa-solid ${i.type === 'income' ? 'fa-arrow-down' : 'fa-arrow-up'}"></i>
+            </div>
+            <div>
+              <p class="text-xs font-bold text-slate-800">${i.category}</p>
+              <p class="text-[10px] text-slate-400 font-medium">${i.date}</p>
+            </div>
+          </div>
+          <span class="text-xs font-black ${i.type === 'income' ? 'text-emerald-600' : 'text-slate-800'}">
+            ${i.type === 'income' ? '+' : '-'}¥${i.amount.toLocaleString()}
+          </span>
+        </div>
+      `).join('');
+    }
+
+    // Chart.js 支出グラフ描画
+    function renderExpenseChart(monthItems) {
+      const expenseItems = monthItems.filter(i => i.type !== 'income');
+      const categoryTotals = {};
+      let totalExpense = 0;
+
+      expenseItems.forEach(i => {
+        categoryTotals[i.category] = (categoryTotals[i.category] || 0) + i.amount;
+        totalExpense += i.amount;
+      });
+
+      document.getElementById('chartTotalExpense').textContent = `合計 ¥${totalExpense.toLocaleString()}`;
+
+      const categories = Object.keys(categoryTotals);
+      const dataValues = Object.values(categoryTotals);
+
+      const legendContainer = document.getElementById('chartLegendList');
+      legendContainer.innerHTML = '';
+
+      if (categories.length === 0) {
+        document.getElementById('noChartData').classList.remove('hidden');
+        if (expenseChartInstance) expenseChartInstance.destroy();
+        return;
+      }
+
+      document.getElementById('noChartData').classList.add('hidden');
+
+      const bgColors = [
+        '#6366f1', '#f97316', '#ec4899', '#10b981', '#06b6d4', '#8b5cf6', '#f59e0b', '#64748b'
+      ];
+
+      // チャート更新
+      const ctx = document.getElementById('expenseChart').getContext('2d');
+      if (expenseChartInstance) expenseChartInstance.destroy();
+
+      expenseChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: categories,
+          datasets: [{
+            data: dataValues,
+            backgroundColor: bgColors.slice(0, categories.length),
+            borderWidth: 2,
+            borderColor: '#ffffff'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          cutout: '68%'
+        }
+      });
+
+      // カテゴリプログレスバー表示
+      categories.forEach((cat, idx) => {
+        const amt = categoryTotals[cat];
+        const pct = Math.round((amt / totalExpense) * 100);
+        const color = bgColors[idx % bgColors.length];
+
+        legendContainer.innerHTML += `
+          <div class="space-y-0.5">
+            <div class="flex justify-between text-[11px] font-bold">
+              <span class="text-slate-700 flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${color}"></span> ${cat}
+              </span>
+              <span class="text-slate-800">¥${amt.toLocaleString()} (${pct}%)</span>
+            </div>
+            <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+              <div class="h-full rounded-full" style="width: ${pct}%; background-color: ${color}"></div>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    // ==================== CALENDAR GENERATION ====================
+    function renderCalendarGrids() {
+      const homeGrid = document.getElementById('homeCalendarGrid');
+      const fullGrid = document.getElementById('fullCalendarGrid');
+
+      homeGrid.innerHTML = '';
+      fullGrid.innerHTML = '';
+
+      const firstDay = new Date(currentYear, currentMonth - 1, 1).getDay();
+      const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+
+      // 空白セル
+      for (let i = 0; i < firstDay; i++) {
+        homeGrid.innerHTML += `<div></div>`;
+        fullGrid.innerHTML += `<div></div>`;
+      }
+
+      // 日付セル生成
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dayStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const dayItems = items.filter(it => it.date === dayStr);
+
+        let dayInc = 0, dayExp = 0;
+        dayItems.forEach(it => {
+          if (it.type === 'income') dayInc += it.amount;
+          else dayExp += it.amount;
+        });
+
+        const isSelected = selectedDateStr === dayStr;
+
+        // ホームミニカレンダー用セル
+        homeGrid.innerHTML += `
+          <div onclick="selectAndSwitchToInput('${dayStr}')" class="p-1 rounded-xl cursor-pointer transition-all ${
+            isSelected ? 'bg-indigo-600 text-white font-black shadow-md' : 'hover:bg-slate-100 text-slate-700'
+          }">
+            <span class="text-[11px] font-bold leading-none block">${day}</span>
+            <div class="flex justify-center gap-0.5 mt-1">
+              ${dayInc > 0 ? `<span class="w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-emerald-300' : 'bg-emerald-500'}"></span>` : ''}
+              ${dayExp > 0 ? `<span class="w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-rose-300' : 'bg-rose-500'}"></span>` : ''}
+            </div>
+          </div>
+        `;
+
+        // フル機能カレンダー用セル
+        fullGrid.innerHTML += `
+          <div onclick="selectCalendarDate('${dayStr}')" class="min-h-[46px] p-1 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between ${
+            isSelected ? 'bg-indigo-50 border-indigo-500 ring-2 ring-indigo-500/20' : 'bg-slate-50/70 border-slate-200/80 hover:border-slate-300'
+          }">
+            <span class="text-[11px] font-black ${isSelected ? 'text-indigo-600' : 'text-slate-700'}">${day}</span>
+            <div class="space-y-0.5 text-[8px] font-bold">
+              ${dayInc > 0 ? `<div class="bg-emerald-100 text-emerald-700 rounded px-1 truncate">+¥${(dayInc/1000).toFixed(0)}k</div>` : ''}
+              ${dayExp > 0 ? `<div class="bg-rose-100 text-rose-700 rounded px-1 truncate">-¥${(dayExp/1000).toFixed(0)}k</div>` : ''}
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    function selectAndSwitchToInput(dateStr) {
+      selectCalendarDate(dateStr);
+      switchTab('input');
+    }
+
+    // 選択された日付の明細表示
+    function renderSelectedDateTransactions() {
+      document.getElementById('selectedDateDisplay').textContent = `${selectedDateStr} の明細`;
+      
+      const dayItems = items.filter(i => i.date === selectedDateStr);
+      const container = document.getElementById('selectedDateTransactions');
+      container.innerHTML = '';
+
+      let dayTotal = 0;
+
+      if (dayItems.length === 0) {
+        container.innerHTML = `<p class="text-xs text-slate-400 text-center py-2 font-medium">この日の登録はありません</p>`;
+        document.getElementById('selectedDateTotal').textContent = '計 ¥0';
+        return;
+      }
+
+      dayItems.forEach(i => {
+        if (i.type === 'income') dayTotal += i.amount;
+        else dayTotal -= i.amount;
+
+        container.innerHTML += `
+          <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-2xl border border-slate-200/80">
+            <div class="flex items-center gap-2">
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded-lg ${
+                i.type === 'income' ? 'bg-emerald-100 text-emerald-700' :
+                i.type === 'variable' ? 'bg-orange-100 text-orange-700' :
+                i.type === 'fixed' ? 'bg-rose-100 text-rose-700' : 'bg-indigo-100 text-indigo-700'
+              }">
+                ${i.type === 'income' ? '収入' : i.type === 'variable' ? '変動費' : i.type === 'fixed' ? '固定費' : '貯蓄'}
+              </span>
+              <span class="text-xs font-bold text-slate-800">${i.category}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-black ${i.type === 'income' ? 'text-emerald-600' : 'text-slate-800'}">
+                ${i.type === 'income' ? '+' : '-'}¥${i.amount.toLocaleString()}
+              </span>
+              <button onclick="deleteItem('${i.id}')" class="text-slate-300 hover:text-rose-500 text-xs p-1 transition-colors">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      });
+
+      document.getElementById('selectedDateTotal').textContent = `合計: ${dayTotal >= 0 ? '+' : ''}¥${dayTotal.toLocaleString()}`;
+    }
+
+    function deleteItem(id) {
+      items = items.filter(i => i.id !== id);
+      saveItems();
+      renderAll();
+    }
+
+    // ==================== INPUT FORM LOGIC ====================
+    function updateInputPresetTags() {
+      const selectedType = document.querySelector('input[name="inputType"]:checked').value;
+      const container = document.getElementById('inputPresetTags');
+      const presets = PRESET_CATEGORIES[selectedType] || [];
+
+      container.innerHTML = presets.map(cat => `
+        <button type="button" onclick="selectPresetTag('${cat}')" class="text-[11px] font-bold bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-600 border border-slate-200 px-2.5 py-1 rounded-lg transition-colors active:scale-95">
+          ${cat}
+        </button>
+      `).join('');
+    }
+
+    function selectPresetTag(catName) {
+      document.getElementById('inputCategory').value = catName;
+      document.getElementById('inputAmount').focus();
+    }
+
+    function handleInputFormSubmit(e) {
+      e.preventDefault();
+      const type = document.querySelector('input[name="inputType"]:checked').value;
+      const category = document.getElementById('inputCategory').value.trim();
+      const amount = parseInt(document.getElementById('inputAmount').value, 10);
+
+      if (!category || isNaN(amount)) return;
+
+      items.push({
+        id: Date.now().toString(),
+        date: selectedDateStr,
+        type,
+        category,
+        amount
+      });
+
+      saveItems();
+      document.getElementById('inputCategory').value = '';
+      document.getElementById('inputAmount').value = '';
+      
+      renderAll();
+    }
+
+    // ==================== YEARLY TAB LOGIC ====================
+    function handleYearSelectChange() {
+      currentYear = parseInt(document.getElementById('yearlyYearSelect').value, 10);
+      renderAll();
+    }
+
+    function renderYearlyTab() {
+      const tbody = document.getElementById('yearlyTableBody');
+      tbody.innerHTML = '';
+
+      for (let m = 1; m <= 12; m++) {
+        const prefix = `${currentYear}-${String(m).padStart(2, '0')}`;
+        const mItems = items.filter(i => i.date.startsWith(prefix));
+
+        let inc = 0, varExp = 0, fixExp = 0, savExp = 0;
+        mItems.forEach(i => {
+          if (i.type === 'income') inc += i.amount;
+          if (i.type === 'variable') varExp += i.amount;
+          if (i.type === 'fixed') fixExp += i.amount;
+          if (i.type === 'savings') savExp += i.amount;
+        });
+
+        const diff = inc - (varExp + fixExp + savExp);
+
+        tbody.innerHTML += `
+          <tr class="${m % 2 === 0 ? 'bg-slate-50/50' : ''}">
+            <td class="p-2.5 font-bold text-slate-700">${m}月</td>
+            <td class="p-2.5 text-emerald-600">¥${inc.toLocaleString()}</td>
+            <td class="p-2.5 text-orange-500">¥${varExp.toLocaleString()}</td>
+            <td class="p-2.5 text-rose-500">¥${fixExp.toLocaleString()}</td>
+            <td class="p-2.5 text-indigo-600">¥${savExp.toLocaleString()}</td>
+            <td class="p-2.5 font-black ${diff >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
+              ${diff >= 0 ? '+' : ''}¥${diff.toLocaleString()}
+            </td>
+          </tr>
+        `;
+      }
+    }
+
+    // ==================== GOAL TAB LOGIC ====================
+    function editTargetGoalPrompt() {
+      const val = prompt('年間貯蓄目標金額（円）を入力してください:', targetGoal);
+      if (val && !isNaN(val)) {
+        targetGoal = parseInt(val, 10);
+        localStorage.setItem(STORAGE_GOAL_KEY, targetGoal);
+        renderGoalTab();
+      }
+    }
+
+    function renderGoalTab() {
+      const yearlyPrefix = `${currentYear}-`;
+      const yearItems = items.filter(i => i.date.startsWith(yearlyPrefix));
+
+      let currentTotalSavings = 0;
+      yearItems.forEach(i => {
+        if (i.type === 'savings') currentTotalSavings += i.amount;
+      });
+
+      const remaining = Math.max(0, targetGoal - currentTotalSavings);
+      const percent = Math.min(100, Math.round((currentTotalSavings / targetGoal) * 100));
+
+      document.getElementById('goalProgressPercent').textContent = `${percent}%`;
+      document.getElementById('goalProgressBar').style.width = `${percent}%`;
+      document.getElementById('goalCurrentTotal').textContent = `¥${currentTotalSavings.toLocaleString()}`;
+      document.getElementById('goalRemainingAmount').textContent = `¥${remaining.toLocaleString()}`;
+
+      const motivationText = document.getElementById('goalMotivationText');
+      if (percent >= 100) {
+        motivationText.textContent = `🎊 おめでとうございます！年間貯蓄目標（¥${targetGoal.toLocaleString()}）を達成しました！素晴らしい成果です！`;
+      } else if (percent >= 50) {
+        motivationText.textContent = `🔥 目標の半分を突破しました！このままのペースで夢の目標を叶えましょう！`;
+      } else {
+        motivationText.textContent = `目標に向かって順調なスタートです！カレンダー入力で着実に前進しましょう！`;
+      }
+    }
+  </script>
+</body>
+</html>
